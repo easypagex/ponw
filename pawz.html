@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pawz</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #FF6B00;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    cursor: none;
+  }
+
+  .cat {
+    position: absolute;
+    font-size: 52px;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+    will-change: transform;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.2));
+  }
+
+  .cat:hover {
+    filter: drop-shadow(0 0 20px rgba(255,255,255,0.95)) drop-shadow(0 4px 10px rgba(0,0,0,0.2));
+  }
+
+  .cursor {
+    position: fixed;
+    pointer-events: none;
+    font-size: 22px;
+    transform: translate(-50%, -50%);
+    z-index: 9999;
+  }
+</style>
+</head>
+<body>
+
+<div class="cursor" id="cursor">🐾</div>
+
+<script>
+  const CATS = ['🐱','🐈','🐈‍⬛','😸','😻','🙀','😹','😺'];
+  const TARGET = 'https://easypagex.github.io/pawz/';
+  const SIZE = 60;
+
+  // Custom cursor
+  const cursor = document.getElementById('cursor');
+  document.addEventListener('mousemove', e => {
+    cursor.style.left = e.clientX + 'px';
+    cursor.style.top  = e.clientY + 'px';
+  });
+
+  const cats = CATS.map((emoji) => {
+    const el = document.createElement('div');
+    el.className = 'cat';
+    el.textContent = emoji;
+    el.title = 'Visit Pawz!';
+
+    const x = Math.random() * (window.innerWidth  - SIZE);
+    const y = Math.random() * (window.innerHeight - SIZE);
+
+    const speed = 1.8 + Math.random() * 2.2;
+    const angle = Math.random() * Math.PI * 2;
+
+    const state = {
+      el,
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      // squish state
+      sx: 1, sy: 1,       // current scale
+      tx: 1, ty: 1,       // target scale
+      squishTimer: 0,
+    };
+
+    el.addEventListener('click', () => window.open(TARGET, '_blank'));
+    document.body.appendChild(el);
+    return state;
+  });
+
+  let last = performance.now();
+
+  function tick(now) {
+    const dt = Math.min((now - last) / 16.667, 3); // normalized delta, cap at 3 frames
+    last = now;
+
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+
+    for (const cat of cats) {
+      cat.x += cat.vx * dt;
+      cat.y += cat.vy * dt;
+
+      let bouncedX = false, bouncedY = false;
+
+      if (cat.x <= 0) {
+        cat.x = 0;
+        cat.vx = Math.abs(cat.vx);
+        bouncedX = true;
+      } else if (cat.x >= W - SIZE) {
+        cat.x = W - SIZE;
+        cat.vx = -Math.abs(cat.vx);
+        bouncedX = true;
+      }
+
+      if (cat.y <= 0) {
+        cat.y = 0;
+        cat.vy = Math.abs(cat.vy);
+        bouncedY = true;
+      } else if (cat.y >= H - SIZE) {
+        cat.y = H - SIZE;
+        cat.vy = -Math.abs(cat.vy);
+        bouncedY = true;
+      }
+
+      // Trigger squish on bounce
+      if (bouncedX) { cat.tx = 0.65; cat.ty = 1.35; cat.squishTimer = 1; }
+      if (bouncedY) { cat.tx = 1.35; cat.ty = 0.65; cat.squishTimer = 1; }
+
+      // Smoothly interpolate scale back to 1
+      const recover = 0.18 * dt;
+      if (cat.squishTimer > 0) {
+        // snap to squish target instantly on first frame
+        cat.sx = cat.tx;
+        cat.sy = cat.ty;
+        cat.squishTimer = 0;
+        cat.tx = 1; cat.ty = 1;
+      } else {
+        cat.sx += (1 - cat.sx) * (1 - Math.pow(1 - recover, 1));
+        cat.sy += (1 - cat.sy) * (1 - Math.pow(1 - recover, 1));
+      }
+
+      // Use transform for position + scale — single composite layer, butter smooth
+      cat.el.style.transform = `translate(${cat.x}px, ${cat.y}px) scaleX(${cat.sx.toFixed(3)}) scaleY(${cat.sy.toFixed(3)})`;
+    }
+
+    requestAnimationFrame(tick);
+  }
+
+  // Init positions via transform (left/top stay at 0)
+  for (const cat of cats) {
+    cat.el.style.left = '0';
+    cat.el.style.top  = '0';
+  }
+
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>
